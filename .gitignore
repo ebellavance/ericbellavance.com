@@ -1,0 +1,13 @@
+# Dependencies
+node_modules/
+
+# Build output
+cdk.out/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# System files
+.DS_Store
