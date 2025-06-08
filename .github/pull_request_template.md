@@ -21,9 +21,10 @@ Please describe the tests that you ran to verify your changes. Provide instructi
 - [ ] Test B
 
 **Test Configuration**:
-* Environment: (e.g., Local, Dev, Staging, Production)
-* Browser: (e.g., Chrome, Safari, Firefox)
-* Version: (e.g., 1.0.0)
+
+- Environment: (e.g., Local, Dev, Staging, Production)
+- Browser: (e.g., Chrome, Safari, Firefox)
+- Version: (e.g., 1.0.0)
 
 # Checklist:
 

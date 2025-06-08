@@ -16,22 +16,21 @@ jobs:
   pr-checks:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20'
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Run linting
-      run: npm run lint
-    
+      - uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: npm run lint
 
   # Build and Deploy to Dev - Runs on push to develop or merge to develop
   build-and-deploy-dev:
@@ -40,128 +39,128 @@ jobs:
     runs-on: ubuntu-latest
     environment: Dev
     concurrency: dev-environment
-    
+
     permissions:
       id-token: write
       contents: read
-    
+
     env:
       NODE_ENV: development
-    
+
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20'
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Build
-      run: npm run build
-    
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-region: ca-central-1
-        role-to-assume: ${{ secrets.DEV_GITHUB_ACTIONS_ROLE_ARN }}
-        role-session-name: GithubActionsSession-Dev
-    
-    - name: Install CDK
-      run: npm install -g aws-cdk
-    
-    - name: Deploy to Dev
-      run: cdk deploy --all --require-approval never
-    
-    - name: Update PR with deployment info
-      if: github.event_name == 'pull_request'
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const { data: comments } = await github.rest.issues.listComments({
-            owner: context.repo.owner,
-            issue_number: context.issue.number,
-            repo: context.repo.repo
-          });
-          
-          const botComment = comments.find(comment => 
-            comment.user.login === 'github-actions[bot]' && 
-            comment.body.includes('Deployment to Dev')
-          );
-          
-          const message = `✅ **Deployed to Dev Environment**\n\n` +
-            `- **Environment**: Development\n` +
-            `- **URL**: ${process.env.DEV_ENV_URL}\n` +
-            `- **Commit**: ${context.sha.substring(0, 7)}\n` +
-            `- **Deployment Time**: ${new Date().toISOString()}`;
-            
-          if (botComment) {
-            await github.rest.issues.updateComment({
+      - uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-region: ca-central-1
+          role-to-assume: ${{ secrets.DEV_GITHUB_ACTIONS_ROLE_ARN }}
+          role-session-name: GithubActionsSession-Dev
+
+      - name: Install CDK
+        run: npm install -g aws-cdk
+
+      - name: Deploy to Dev
+        run: cdk deploy --all --require-approval never
+
+      - name: Update PR with deployment info
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
-              comment_id: botComment.id,
-              repo: context.repo.repo,
-              body: message
-            });
-          } else {
-            await github.rest.issues.createComment({
               issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: message
+              repo: context.repo.repo
             });
-          }
+
+            const botComment = comments.find(comment => 
+              comment.user.login === 'github-actions[bot]' && 
+              comment.body.includes('Deployment to Dev')
+            );
+
+            const message = `✅ **Deployed to Dev Environment**\n\n` +
+              `- **Environment**: Development\n` +
+              `- **URL**: ${process.env.DEV_ENV_URL}\n` +
+              `- **Commit**: ${context.sha.substring(0, 7)}\n` +
+              `- **Deployment Time**: ${new Date().toISOString()}`;
+              
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                comment_id: botComment.id,
+                repo: context.repo.repo,
+                body: message
+              });
+            } else {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: message
+              });
+            }
 
   # Deploy to Production - Runs on push to main
   deploy-prod:
     if: github.ref == 'refs/heads/main'
     needs: [pr-checks, build-and-deploy-dev]
     runs-on: ubuntu-latest
-    environment: 
+    environment:
       name: Prod
       url: ${{ env.PROD_ENV_URL }}
     concurrency: prod-environment
-    
+
     permissions:
       id-token: write
       contents: read
       deployments: write
-    
+
     env:
       NODE_ENV: production
-    
+
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20'
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Build
-      run: npm run build
-    
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-region: ca-central-1
-        role-to-assume: ${{ secrets.PROD_GITHUB_ACTIONS_ROLE_ARN }}
-        role-session-name: GithubActionsSession-Prod
-    
-    - name: Install CDK
-      run: npm install -g aws-cdk
-    
-    - name: Deploy to Production
-      run: cdk deploy --all --require-approval never
-    
-    - name: Create deployment status
-      uses: bobheadxi/deployments@v1
-      with:
-        step: finish
-        status: success
-        env: production
-        token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-region: ca-central-1
+          role-to-assume: ${{ secrets.PROD_GITHUB_ACTIONS_ROLE_ARN }}
+          role-session-name: GithubActionsSession-Prod
+
+      - name: Install CDK
+        run: npm install -g aws-cdk
+
+      - name: Deploy to Production
+        run: cdk deploy --all --require-approval never
+
+      - name: Create deployment status
+        uses: bobheadxi/deployments@v1
+        with:
+          step: finish
+          status: success
+          env: production
+          token: ${{ secrets.GITHUB_TOKEN }}
