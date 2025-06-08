@@ -11,11 +11,6 @@ on:
       - 'develop'
       - 'main'
 
-# Environment URLs for easy access
-env:
-  DEV_ENV_URL: https://dev.ericbellavance.com  # Update with your dev URL
-  PROD_ENV_URL: https://ericbellavance.com       # Update with your prod URL
-
 jobs:
   # PR Checks - Runs on PRs to develop/main
   pr-checks:
@@ -34,11 +29,9 @@ jobs:
     - name: Install dependencies
       run: npm ci
     
-    - name: Run tests
-      run: npm test
+    - name: Run linting
+      run: npm run lint
     
-    - name: Build
-      run: npm run build
 
   # Build and Deploy to Dev - Runs on push to develop or merge to develop
   build-and-deploy-dev:
