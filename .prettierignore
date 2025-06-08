@@ -1,0 +1,9 @@
+cdk.out
+
+# Ignore specific files
+package-lock.json
+
+# Node
+/node_modules
+npm-debug.log
+yarn-error.log
