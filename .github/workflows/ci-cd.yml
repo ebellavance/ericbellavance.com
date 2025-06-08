@@ -29,6 +29,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Set up .env file for PR check
+        run: |
+          cp .env.example .env
+
       - name: Run linting
         run: npm run lint
 
