@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "lint:cdk": "npm run synth:management",
+    "lint:cdk": "npm run synth:dev",
     "lint:ts": "tsc --noEmit",
     "lint:eslint": "eslint",
     "lint:eslint:fix": "eslint --fix",
