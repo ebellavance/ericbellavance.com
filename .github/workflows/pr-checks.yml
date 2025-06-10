@@ -1,0 +1,118 @@
+name: PR Code Quality Checks
+on:
+  pull_request:
+    branches: ['develop', 'main']
+    types: [opened, synchronize, reopened]
+
+jobs:
+  lint-and-format:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+
+      - name: Setup Node and Cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+        continue-on-error: true
+        id: eslint
+
+      - name: Run Prettier check
+        run: npm run format:check
+        continue-on-error: true
+        id: prettier
+
+      - name: Run TypeScript check
+        run: npm run type-check
+        continue-on-error: true
+        id: typescript
+
+      - name: Generate lint report
+        if: always()
+        run: |
+          echo "## 🔍 Code Quality Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.eslint.outcome }}" == "success" ]; then
+            echo "✅ **ESLint:** Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **ESLint:** Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ steps.prettier.outcome }}" == "success" ]; then
+            echo "✅ **Prettier:** Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Prettier:** Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ steps.typescript.outcome }}" == "success" ]; then
+            echo "✅ **TypeScript:** Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **TypeScript:** Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Fail if any check failed
+        if: steps.eslint.outcome == 'failure' || steps.prettier.outcome == 'failure' || steps.typescript.outcome == 'failure'
+        run: exit 1
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+
+      - name: Setup Node and Cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run security audit
+        run: npm audit --audit-level high
+        continue-on-error: true
+
+  cdk-synth-check:
+    name: CDK Synth Check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: [dev, prod]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+
+      - name: Setup Node and Cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: CDK synth check (${{ matrix.environment }})
+        run: npx cdk synth --context environment=${{ matrix.environment }} --dry-run
+        env:
+          SKIP_SANDBOX: true
