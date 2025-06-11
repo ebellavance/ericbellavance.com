@@ -75,18 +75,31 @@ jobs:
       - name: Generate diff summary
         id: diff_summary
         run: |
-          # Count changes
-          RESOURCES_TO_ADD=$(grep -c "^\[+\]" output.log || echo "0")
-          RESOURCES_TO_UPDATE=$(grep -c "^\[~\]" output.log || echo "0")
-          RESOURCES_TO_DELETE=$(grep -c "^\[-\]" output.log || echo "0")
+          # Count changes, default to 0 if no matches found
+          RESOURCES_TO_ADD=0
+          RESOURCES_TO_UPDATE=0
+          RESOURCES_TO_DELETE=0
+          
+          # Use grep with || true to prevent failure when no matches are found
+          if [ -f output.log ]; then
+            RESOURCES_TO_ADD=$(grep -c '^\[\+\]' output.log || true)
+            RESOURCES_TO_UPDATE=$(grep -c '^\[~\]' output.log || true)
+            RESOURCES_TO_DELETE=$(grep -c '^\[-\]' output.log || true)
+            
+            # If any of the variables are empty, set them to 0
+            [ -z "$RESOURCES_TO_ADD" ] && RESOURCES_TO_ADD=0
+            [ -z "$RESOURCES_TO_UPDATE" ] && RESOURCES_TO_UPDATE=0
+            [ -z "$RESOURCES_TO_DELETE" ] && RESOURCES_TO_DELETE=0
+          fi
 
-          echo "resources_add=$RESOURCES_TO_ADD" >> $GITHUB_OUTPUT
-          echo "resources_update=$RESOURCES_TO_UPDATE" >> $GITHUB_OUTPUT
-          echo "resources_delete=$RESOURCES_TO_DELETE" >> $GITHUB_OUTPUT
+          # Output the results
+          echo "resources_add=${RESOURCES_TO_ADD:-0}" >> $GITHUB_OUTPUT
+          echo "resources_update=${RESOURCES_TO_UPDATE:-0}" >> $GITHUB_OUTPUT
+          echo "resources_delete=${RESOURCES_TO_DELETE:-0}" >> $GITHUB_OUTPUT
 
-          # Determine if there are significant changes
+          # Calculate total changes
           TOTAL_CHANGES=$((RESOURCES_TO_ADD + RESOURCES_TO_UPDATE + RESOURCES_TO_DELETE))
-          echo "total_changes=$TOTAL_CHANGES" >> $GITHUB_OUTPUT
+          echo "total_changes=${TOTAL_CHANGES}" >> $GITHUB_OUTPUT
 
       - name: Post diff in comment
         uses: mshick/add-pr-comment@v2
