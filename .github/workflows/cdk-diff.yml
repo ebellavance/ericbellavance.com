@@ -79,7 +79,7 @@ jobs:
           RESOURCES_TO_ADD=0
           RESOURCES_TO_UPDATE=0
           RESOURCES_TO_DELETE=0
-          
+
           # Use grep with || true to prevent failure when no matches are found
           if [ -f output.log ]; then
             RESOURCES_TO_ADD=$(grep -c '^\[\+\]' output.log || true)
