@@ -53,6 +53,11 @@ jobs:
         run: npx cdk synth ${{ steps.cdk-config.outputs.context_flags }}
         env:
           SKIP_SANDBOX: ${{ github.base_ref == 'develop' }}
+          DEV_ALLOWED_IPS: ${{ secrets.DEV_ALLOWED_IPS }}
+          CROSS_ACCOUNT_ROLE_ARN: ${{ secrets.CROSS_ACCOUNT_ROLE_ARN }}
+          DNS_ACCOUNT: ${{ secrets.DNS_ACCOUNT }}
+          DEV_ACCOUNT_NUMBER: ${{ secrets.DEV_ACCOUNT_NUMBER }}
+          PROD_ACCOUNT_NUMBER: ${{ secrets.PROD_ACCOUNT_NUMBER }}
 
       - name: Run AWS CDK diff
         run: |
