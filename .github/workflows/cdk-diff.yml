@@ -50,8 +50,9 @@ jobs:
           fi
 
       - name: CDK synth
-        run: npx cdk synth ${{ steps.cdk-config.outputs.context_flags }}
+        run: npx cdk synth --output cdk.out ${{ steps.cdk-config.outputs.context_flags }}
         env:
+          STAGE: ${{ steps.cdk-config.outputs.stage }}
           SKIP_SANDBOX: ${{ github.base_ref == 'develop' }}
           DEV_ALLOWED_IPS: ${{ secrets.DEV_ALLOWED_IPS }}
           CROSS_ACCOUNT_ROLE_ARN: ${{ secrets.CROSS_ACCOUNT_ROLE_ARN }}
@@ -61,8 +62,10 @@ jobs:
 
       - name: Run AWS CDK diff
         run: |
-          npx cdk diff --app "./cdk.out/assembly-${{ steps.cdk-config.outputs.stage }}" ${{ steps.cdk-config.outputs.context_flags }} 2>&1 | tee output.log
+          # Convert stage to lowercase for the assembly directory name
+          npx cdk diff --app "./cdk.out/assembly-${STAGE,,}" ${{ steps.cdk-config.outputs.context_flags }} 2>&1 | tee output.log
         env:
+          STAGE: ${{ steps.cdk-config.outputs.stage }}
           SKIP_SANDBOX: ${{ github.base_ref == 'develop' }}
 
       - name: Save output
