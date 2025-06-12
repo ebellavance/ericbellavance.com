@@ -1,0 +1,149 @@
+name: Run CDK difference
+on:
+  pull_request:
+    branches: ['develop', 'main']
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build:
+    name: Run CDK diff
+    # Use different environments based on target branch
+    environment: ${{ github.base_ref == 'main' && 'prod' || 'dev' }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          # Fetch full history for better diff context
+          fetch-depth: 0
+
+      - name: Setup Node and Cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ github.base_ref == 'main' && secrets.PROD_GITHUB_ACTIONS_ROLE_ARN || secrets.DEV_GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: ${{ vars.PRIMARY_REGION }}
+
+      - name: Determine CDK stage and context
+        id: cdk-config
+        run: |
+          if [ "${{ github.base_ref }}" == "main" ]; then
+            echo "stage=Prod" >> $GITHUB_OUTPUT
+            echo "context_flags=--context stage=prod" >> $GITHUB_OUTPUT
+          else
+            echo "stage=Dev" >> $GITHUB_OUTPUT
+            echo "context_flags=--context stage=dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: CDK synth
+        run: npx cdk synth --output cdk.out ${{ steps.cdk-config.outputs.context_flags }}
+        env:
+          STAGE: ${{ steps.cdk-config.outputs.stage }}
+          SKIP_SANDBOX: ${{ github.base_ref == 'develop' }}
+          DEV_ALLOWED_IPS: ${{ secrets.DEV_ALLOWED_IPS }}
+          CROSS_ACCOUNT_ROLE_ARN: ${{ secrets.CROSS_ACCOUNT_ROLE_ARN }}
+          DNS_ACCOUNT: ${{ secrets.DNS_ACCOUNT }}
+          DEV_ACCOUNT_NUMBER: ${{ secrets.DEV_ACCOUNT_NUMBER }}
+          PROD_ACCOUNT_NUMBER: ${{ secrets.PROD_ACCOUNT_NUMBER }}
+
+      - name: Run AWS CDK diff
+        run: |
+          # Convert stage to lowercase for the assembly directory name
+          npx cdk diff --app "./cdk.out/assembly-${STAGE,,}" ${{ steps.cdk-config.outputs.context_flags }} 2>&1 | tee output.log
+        env:
+          STAGE: ${{ steps.cdk-config.outputs.stage }}
+          SKIP_SANDBOX: ${{ github.base_ref == 'develop' }}
+
+      - name: Save output
+        id: output_log
+        run: |
+          echo "data<<EOF" >> $GITHUB_OUTPUT
+          echo "$(cat output.log)" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Generate diff summary
+        id: diff_summary
+        run: |
+          # Count changes, default to 0 if no matches found
+          RESOURCES_TO_ADD=0
+          RESOURCES_TO_UPDATE=0
+          RESOURCES_TO_DELETE=0
+
+          # Use grep with || true to prevent failure when no matches are found
+          if [ -f output.log ]; then
+            RESOURCES_TO_ADD=$(grep -c '^\[\+\]' output.log || true)
+            RESOURCES_TO_UPDATE=$(grep -c '^\[~\]' output.log || true)
+            RESOURCES_TO_DELETE=$(grep -c '^\[-\]' output.log || true)
+            
+            # If any of the variables are empty, set them to 0
+            [ -z "$RESOURCES_TO_ADD" ] && RESOURCES_TO_ADD=0
+            [ -z "$RESOURCES_TO_UPDATE" ] && RESOURCES_TO_UPDATE=0
+            [ -z "$RESOURCES_TO_DELETE" ] && RESOURCES_TO_DELETE=0
+          fi
+
+          # Output the results
+          echo "resources_add=${RESOURCES_TO_ADD:-0}" >> $GITHUB_OUTPUT
+          echo "resources_update=${RESOURCES_TO_UPDATE:-0}" >> $GITHUB_OUTPUT
+          echo "resources_delete=${RESOURCES_TO_DELETE:-0}" >> $GITHUB_OUTPUT
+
+          # Calculate total changes
+          TOTAL_CHANGES=$((RESOURCES_TO_ADD + RESOURCES_TO_UPDATE + RESOURCES_TO_DELETE))
+          echo "total_changes=${TOTAL_CHANGES}" >> $GITHUB_OUTPUT
+
+      - name: Post diff in comment
+        uses: mshick/add-pr-comment@v2
+        with:
+          message-id: cdk-diff-${{ steps.cdk-config.outputs.stage }}
+          message: |
+            ## 🏗️ CDK Infrastructure Diff - ${{ steps.cdk-config.outputs.stage }}
+
+            **Target Branch:** `${{ github.base_ref }}` | **Source Branch:** `${{ github.head_ref }}`
+
+            ### 📊 Summary
+            - **Resources to Add:** ${{ steps.diff_summary.outputs.resources_add }}
+            - **Resources to Update:** ${{ steps.diff_summary.outputs.resources_update }}
+            - **Resources to Delete:** ${{ steps.diff_summary.outputs.resources_delete }}
+            - **Total Changes:** ${{ steps.diff_summary.outputs.total_changes }}
+
+            ${{ steps.diff_summary.outputs.total_changes == '0' && '✅ **No infrastructure changes detected**' || '⚠️ **Infrastructure changes detected - Please review carefully**' }}
+
+            <details>
+              <summary>🔍 View Full CDK Diff</summary>
+              
+              ```bash
+              ${{ steps.output_log.outputs.data }}
+              ```
+            </details>
+
+            ---
+            *This diff shows changes that would be applied to the **${{ steps.cdk-config.outputs.environment }}** environment when this PR is merged.*
+
+      - name: Check for destructive changes
+        if: steps.diff_summary.outputs.resources_delete != '0'
+        run: |
+          echo "::warning title=Destructive Changes Detected::This PR will delete ${{ steps.diff_summary.outputs.resources_delete }} resource(s). Please review carefully!"
+
+      - name: Add workflow status
+        if: always()
+        uses: mshick/add-pr-comment@v2
+        with:
+          message-id: cdk-workflow-status
+          message: |
+            ### 🔄 CDK Workflow Status: ${{ job.status == 'success' && '✅ Completed Successfully' || '❌ Failed' }}
+
+            **Environment:** ${{ steps.cdk-config.outputs.environment }}  
+            **Workflow Run:** [View Details](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})

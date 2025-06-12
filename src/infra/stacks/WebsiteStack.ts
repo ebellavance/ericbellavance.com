@@ -1,24 +1,27 @@
-import * as cdk from 'aws-cdk-lib';
-import { Stack, CfnOutput, RemovalPolicy, Duration } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
-import * as iam from 'aws-cdk-lib/aws-iam';
-import * as customResources from 'aws-cdk-lib/custom-resources';
-import * as path from 'path';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
-import * as s3 from 'aws-cdk-lib/aws-s3';
-import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
-import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
-import { S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
-import * as acm from 'aws-cdk-lib/aws-certificatemanager';
-import { IStage } from '../model';
+import * as cdk from 'aws-cdk-lib'
+import { Stack, CfnOutput, RemovalPolicy, Duration } from 'aws-cdk-lib'
+import { Construct } from 'constructs'
+import * as iam from 'aws-cdk-lib/aws-iam'
+import * as customResources from 'aws-cdk-lib/custom-resources'
+
+// Default timeout in seconds for Lambda functions
+const DEFAULT_LAMBDA_TIMEOUT_SECONDS = 90
+import * as path from 'path'
+import * as lambda from 'aws-cdk-lib/aws-lambda'
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
+import * as s3 from 'aws-cdk-lib/aws-s3'
+import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment'
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront'
+import { S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins'
+import * as acm from 'aws-cdk-lib/aws-certificatemanager'
+import { IStage } from '../model'
 
 /**
  * Props for the WebsiteStack, extending the standard CDK StackProps
  * and including a custom stage property.
  */
 interface WebsiteStackProps extends cdk.StackProps {
-  stage: IStage;
+  stage: IStage
 }
 
 /**
@@ -26,25 +29,30 @@ interface WebsiteStackProps extends cdk.StackProps {
  * for a static website hosted on AWS.
  */
 export class WebsiteStack extends Stack {
-  constructor(scope: Construct, id: string, props: WebsiteStackProps) {
-    super(scope, id, props);
+  // Timeout for Lambda functions in seconds
+  private readonly LAMBDA_TIMEOUT = DEFAULT_LAMBDA_TIMEOUT_SECONDS
 
-    const { stage } = props;
+  constructor(scope: Construct, id: string, props: WebsiteStackProps) {
+    super(scope, id, props)
+
+    const { stage } = props
 
     // Create S3 buckets for website content and logs
-    const websiteBucketServerLogs = this.createLogBucket('WebsiteBucketServerLogs', `${stage.DOMAIN_NAME}-access-logs`);
-    const websiteBucket = this.createWebsiteBucket(stage.DOMAIN_NAME, websiteBucketServerLogs);
-    const bucketCloudfrontLogs = this.createLogBucket('BucketCloudfrontLogs', `${stage.DOMAIN_NAME}-cloudfront-logs`, websiteBucketServerLogs);
+    const websiteBucketServerLogs = this.createLogBucket('WebsiteBucketServerLogs', `${stage.DOMAIN_NAME}-access-logs`)
+    const websiteBucket = this.createWebsiteBucket(stage.DOMAIN_NAME, websiteBucketServerLogs)
+    const bucketCloudfrontLogs = this.createLogBucket(
+      'BucketCloudfrontLogs',
+      `${stage.DOMAIN_NAME}-cloudfront-logs`,
+      websiteBucketServerLogs,
+    )
 
     // Create and validate ACM certificate for HTTPS
-    const customCertificate = this.createAndValidateCertificate(stage);
+    const customCertificate = this.createAndValidateCertificate(stage)
 
     // Create CloudFront Function for IP restriction (only for dev stage)
-    let ipRestrictionFunction: cloudfront.Function | undefined;
+    let ipRestrictionFunction: cloudfront.Function | undefined
     if (stage.STAGE_NAME === 'dev') {
-      ipRestrictionFunction = this.createIpRestrictionFunction(
-        stage
-      );
+      ipRestrictionFunction = this.createIpRestrictionFunction(stage)
     }
 
     // Create CloudFront distribution
@@ -53,17 +61,17 @@ export class WebsiteStack extends Stack {
       bucketCloudfrontLogs,
       customCertificate,
       stage,
-      ipRestrictionFunction
-    );
+      ipRestrictionFunction,
+    )
 
     // Deploy website content to the S3 bucket
-    this.deployWebsiteContent(websiteBucket,distribution);
+    this.deployWebsiteContent(websiteBucket, distribution)
 
     // Manage DNS records for the website
-    this.manageDNSRecords(distribution, stage);
+    this.manageDNSRecords(distribution, stage)
 
     // Output important resource information
-    this.outputResources(websiteBucketServerLogs, websiteBucket, bucketCloudfrontLogs, distribution);
+    this.outputResources(websiteBucketServerLogs, websiteBucket, bucketCloudfrontLogs, distribution)
   }
 
   /**
@@ -85,7 +93,7 @@ export class WebsiteStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
       serverAccessLogsBucket,
       serverAccessLogsPrefix: serverAccessLogsBucket ? id : undefined,
-    });
+    })
   }
 
   /**
@@ -105,23 +113,20 @@ export class WebsiteStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
       serverAccessLogsBucket,
       serverAccessLogsPrefix: 'Website',
-    });
+    })
   }
 
   /**
    * Deploys the website content from the local 'dist' directory to the S3 bucket.
    * @param websiteBucket - The S3 bucket to deploy the content to
    */
-  private deployWebsiteContent(
-    websiteBucket: s3.IBucket,
-    distribution: cloudfront.Distribution
-  ): void {
+  private deployWebsiteContent(websiteBucket: s3.IBucket, distribution: cloudfront.Distribution): void {
     new s3deploy.BucketDeployment(this, 'BucketDeployment', {
       destinationBucket: websiteBucket,
       sources: [s3deploy.Source.asset(path.resolve(__dirname, '../../dist'))],
       distribution,
       distributionPaths: ['/*'],
-    });
+    })
   }
 
   /**
@@ -134,11 +139,11 @@ export class WebsiteStack extends Stack {
     const role = new iam.Role(this, id, {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       description,
-    });
+    })
 
-    role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'));
-    
-    return role;
+    role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'))
+
+    return role
   }
 
   /**
@@ -148,19 +153,26 @@ export class WebsiteStack extends Stack {
    */
   private createAndValidateCertificate(stage: IStage): acm.ICertificate {
     // Create a custom IAM role for the Lambda function
-    const lambdaRole = this.createLambdaRole('LambdaCustomRoleCertificateValidation', 'Custom role for Lambda with cross-account permissions to DNS account');
-    
+    const lambdaRole = this.createLambdaRole(
+      'LambdaCustomRoleCertificateValidation',
+      'Custom role for Lambda with cross-account permissions to DNS account',
+    )
+
     // Add permissions to assume the cross-account role
-    lambdaRole.addToPolicy(new iam.PolicyStatement({
-      actions: ['sts:AssumeRole'],
-      resources: [stage.CROSS_ACCOUNT_ROLE_ARN],
-    }));
+    lambdaRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['sts:AssumeRole'],
+        resources: [stage.CROSS_ACCOUNT_ROLE_ARN],
+      }),
+    )
 
     // Add permissions to manage ACM certificates
-    lambdaRole.addToPolicy(new iam.PolicyStatement({
-      actions: ['acm:RequestCertificate', 'acm:DescribeCertificate', 'acm:DeleteCertificate'],
-      resources: ['*'],
-    }));
+    lambdaRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['acm:RequestCertificate', 'acm:DescribeCertificate', 'acm:DeleteCertificate'],
+        resources: ['*'],
+      }),
+    )
 
     // Create the Lambda function for certificate management
     const certificateLambda = new NodejsFunction(this, 'CertificateLambda', {
@@ -168,13 +180,13 @@ export class WebsiteStack extends Stack {
       handler: 'handler',
       entry: path.join(__dirname, '../../functions/dnscertificatevalidation.ts'),
       role: lambdaRole,
-      timeout: Duration.seconds(90),
-    });
+      timeout: Duration.seconds(this.LAMBDA_TIMEOUT),
+    })
 
     // Create a custom resource provider using the Lambda function
     const certificateProvider = new customResources.Provider(this, 'CertificateProvider', {
       onEventHandler: certificateLambda,
-    });
+    })
 
     // Create a custom resource to manage the ACM certificate
     const certificate = new cdk.CustomResource(this, 'CertificateCustomResource', {
@@ -185,22 +197,20 @@ export class WebsiteStack extends Stack {
         DomainName: stage.DOMAIN_NAME,
         SubjectAlternativeNames: stage.ALTERNATE_DOMAIN_NAME,
       },
-    });
+    })
 
     // Output the certificate ARN
-    const certificateArn = certificate.getAttString('CertificateArn');
-    new CfnOutput(this, 'CertificateArn', { value: certificateArn });
-    new CfnOutput(this, 'OldCertificateArn', { 
+    const certificateArn = certificate.getAttString('CertificateArn')
+    new CfnOutput(this, 'CertificateArn', { value: certificateArn })
+    new CfnOutput(this, 'OldCertificateArn', {
       value: certificate.getAttString('OldCertificateArn'),
       description: 'The ARN of the old certificate (N/A if no old certificate exists)',
-    });
+    })
 
-    return acm.Certificate.fromCertificateArn(this, 'CustomCertificate', certificateArn);
+    return acm.Certificate.fromCertificateArn(this, 'CustomCertificate', certificateArn)
   }
 
-  private createIpRestrictionFunction(
-    stage: IStage
-  ): cloudfront.Function {
+  private createIpRestrictionFunction(stage: IStage): cloudfront.Function {
     const functionCode = `
       function handler(event) {
           var allowedIPs = ${JSON.stringify(stage.DEV_ALLOWED_IP)};
@@ -225,12 +235,12 @@ export class WebsiteStack extends Stack {
           // If IP is allowed, continue with the request
           return event.request;
       }
-    `;
+    `
 
     return new cloudfront.Function(this, 'IpRestrictionFunction', {
       code: cloudfront.FunctionCode.fromInline(functionCode),
       runtime: cloudfront.FunctionRuntime.JS_2_0,
-    });
+    })
   }
 
   /**
@@ -246,7 +256,7 @@ export class WebsiteStack extends Stack {
     logBucket: s3.IBucket,
     certificate: acm.ICertificate,
     stage: IStage,
-    ipRestrictionFunction?: cloudfront.Function
+    ipRestrictionFunction?: cloudfront.Function,
   ): cloudfront.Distribution {
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
       defaultBehavior: {
@@ -279,9 +289,9 @@ export class WebsiteStack extends Stack {
       domainNames: [stage.DOMAIN_NAME, ...stage.ALTERNATE_DOMAIN_NAME],
       certificate,
       priceClass: cloudfront.PriceClass.PRICE_CLASS_ALL,
-    });
+    })
 
-    return distribution;
+    return distribution
   }
 
   /**
@@ -291,13 +301,18 @@ export class WebsiteStack extends Stack {
    */
   private manageDNSRecords(distribution: cloudfront.Distribution, stage: IStage): void {
     // Create a custom IAM role for the Lambda function
-    const lambdaRole = this.createLambdaRole('DNSRecordsLambdaExecutionRole', 'Custom role for Lambda with cross-account permissions to DNS account');
-    
+    const lambdaRole = this.createLambdaRole(
+      'DNSRecordsLambdaExecutionRole',
+      'Custom role for Lambda with cross-account permissions to DNS account',
+    )
+
     // Add permissions to assume the cross-account role
-    lambdaRole.addToPolicy(new iam.PolicyStatement({
-      actions: ['sts:AssumeRole'],
-      resources: [stage.CROSS_ACCOUNT_ROLE_ARN],
-    }));
+    lambdaRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['sts:AssumeRole'],
+        resources: [stage.CROSS_ACCOUNT_ROLE_ARN],
+      }),
+    )
 
     // Create the Lambda function for DNS record management
     const dnsRecordsLambda = new NodejsFunction(this, 'DNSRecordsLambda', {
@@ -305,13 +320,13 @@ export class WebsiteStack extends Stack {
       handler: 'handler',
       entry: path.join(__dirname, '../../functions/crossaccountdnsrecords.ts'),
       role: lambdaRole,
-      timeout: Duration.seconds(90),
-    });
+      timeout: Duration.seconds(this.LAMBDA_TIMEOUT),
+    })
 
     // Create a custom resource provider using the Lambda function
     const dnsRecordsProvider = new customResources.Provider(this, 'DNSRecordsProvider', {
       onEventHandler: dnsRecordsLambda,
-    });
+    })
 
     // Create a custom resource to manage DNS records
     new cdk.CustomResource(this, 'DNSRecordsCustomResource', {
@@ -322,7 +337,7 @@ export class WebsiteStack extends Stack {
         DomainName: stage.DOMAIN_NAME,
         SubjectAlternativeNames: stage.ALTERNATE_DOMAIN_NAME,
       },
-    });
+    })
   }
 
   /**
@@ -336,11 +351,11 @@ export class WebsiteStack extends Stack {
     websiteBucketServerLogs: s3.IBucket,
     websiteBucket: s3.IBucket,
     bucketCloudfrontLogs: s3.IBucket,
-    distribution: cloudfront.Distribution
+    distribution: cloudfront.Distribution,
   ): void {
-    new CfnOutput(this, 'WebsiteBucketServerLogsName', { value: websiteBucketServerLogs.bucketName });
-    new CfnOutput(this, 'WebsiteBucketName', { value: websiteBucket.bucketName });
-    new CfnOutput(this, 'BucketCloudfrontLogsName', { value: bucketCloudfrontLogs.bucketName });
-    new CfnOutput(this, 'DistributionURL', { value: `https://${distribution.domainName}` });
+    new CfnOutput(this, 'WebsiteBucketServerLogsName', { value: websiteBucketServerLogs.bucketName })
+    new CfnOutput(this, 'WebsiteBucketName', { value: websiteBucket.bucketName })
+    new CfnOutput(this, 'BucketCloudfrontLogsName', { value: bucketCloudfrontLogs.bucketName })
+    new CfnOutput(this, 'DistributionURL', { value: `https://${distribution.domainName}` })
   }
 }

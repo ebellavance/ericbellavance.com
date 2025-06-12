@@ -12,4 +12,3 @@ export interface IStage extends IProject {
   readonly DOMAIN_NAME: string
   readonly STAGE_NAME: string
 }
-  
