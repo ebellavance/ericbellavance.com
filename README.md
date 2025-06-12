@@ -258,11 +258,3 @@ Waits for the certificate to be fully validated and issued
 
 **Error Handling:**
 The code includes try-catch blocks to handle and log errors during the process.
-
-> > > > > > > f4295d8 (Initial commit: Set up project structure with CI/CD)
-> > > > > > > Would you like me to help you set up anything else, such as:
-
-Environment variables for deployment
-AWS credentials for the CI/CD pipeline
-Branch protection rules
-Any specific deployment configurations?
