@@ -1,41 +1,62 @@
 name: PR Code Quality Checks
+# This GitHub Actions workflow is designed to run automated code quality and validation checks on
+# pull requests targeting the develop or main branches.
 on:
   pull_request:
     branches: ['develop', 'main']
     types: [opened, synchronize, reopened]
 
 jobs:
+  # This job runs three code quality checks in parallel:
+  # - ESLint: Checks for code style and potential issues using your linting rules
+  # - Prettier: Verifies code formatting consistency
+  # - TypeScript: Performs type checking to catch type-related errors
   lint-and-format:
     name: Lint & Format Check
     runs-on: ubuntu-latest
     steps:
+      # checks out the specific code from the pull request, but with some important nuances:
+      # This setup is designed to handle forked repositories. When someone forks your repo and creates a PR from their fork:
+      # It correctly checks out the code from the contributor's fork, including their actual changes
       - name: Checkout code
+        # Uses GitHub's official action to download/clone repository code into the runner
         uses: actions/checkout@v4
         with:
+          # Checks out the exact branch/commit that contains the PR changes (the "head" of the PR)
           ref: ${{ github.event.pull_request.head.ref }}
+          # Specifies which repository to check out from
           repository: ${{ github.event.pull_request.head.repo.full_name }}
-
+      #This step sets up the Node.js runtime environment and enables dependency caching for faster workflow execution:
       - name: Setup Node and Cache
+        # Uses GitHub's official action to install and configure Node.js on the runner
         uses: actions/setup-node@v4
         with:
+          # Installs Node.js version 20 (the current LTS version), ensuring consistent runtime across all workflow runs
           node-version: 20
+          # Enables dependency caching to speed up workflow execution by reusing previously installed dependencies
           cache: npm
-
+      # Performs a fresh, clean installation of dependencies
+      # Installs exact versions specified in package-lock.json, ignoring package.json version ranges
       - name: Install dependencies
         run: npm ci
 
       - name: Run ESLint
-        run: npm run lint
+        # Executes the lint script defined in package.json which typically runs ESLint to check code quality, style, and potential issues
+        run: npm run ci:lint
+        # the workflow step is marked as failed BUT the workflow continues to run subsequent steps instead of stopping immediately
         continue-on-error: true
+        # Assigns a unique identifier to this step so other steps can reference its outcome later
         id: eslint
 
       - name: Run Prettier check
-        run: npm run format:check
+        # Executes the format:check script defined in package.json which typically runs Prettier to check code quality, style, and potential issues
+        run: npm run ci:lint:prettier
         continue-on-error: true
         id: prettier
 
       - name: Run TypeScript check
-        run: npm run type-check
+        # Executes the type-check script defined in package.json which typically runs TypeScript to check code quality, style, and potential issues
+        run: npm run ci:lint:ts
         continue-on-error: true
         id: typescript
 
@@ -68,6 +89,8 @@ jobs:
         run: exit 1
 
   security-scan:
+    # Runs npm audit to check for known security vulnerabilities in your dependencies.
+    #It only flags high-severity issues and continues on error, making it informational rather than blocking.
     name: Security Scan
     runs-on: ubuntu-latest
     steps:
@@ -91,6 +114,8 @@ jobs:
         continue-on-error: true
 
   cdk-synth-check:
+    # This job runs a CDK synth check for both the dev and prod environments.
+    # It uses a matrix strategy to run the check for both environments in parallel.
     name: CDK Synth Check
     runs-on: ubuntu-latest
     strategy:
