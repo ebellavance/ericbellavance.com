@@ -1,6 +1,6 @@
 # Eric Bellavance's Personal Website
 
-[![CI/CD](https://github.com/ebellavance/ericbellavance.com/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/ebellavance/ericbellavance.com/actions/workflows/ci-cd.yml)
+[![PR Checks](https://github.com/ebellavance/ericbellavance.com/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/ebellavance/ericbellavance.com/actions/workflows/pr-checks.yml)
 
 Personal website and portfolio of Eric Bellavance. This is a static website deployed using AWS CloudFront, S3, and ACM Certificate with DNS validation.
 
