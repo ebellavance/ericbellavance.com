@@ -4,7 +4,7 @@ on:
     branches: [main]
 
 jobs:
-  check_source_branch:
+  validate_source_branch:
     runs-on: ubuntu-latest
     steps:
       - name: Validate source branch
