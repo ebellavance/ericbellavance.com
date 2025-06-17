@@ -168,6 +168,19 @@ jobs:
 
             **Environment:** Dev  
             **Workflow Run:** [View Details](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+      - name: Add deployment notice
+        uses: mshick/add-pr-comment@v2
+        with:
+          message-id: deployment-notice
+          message: |
+            ## 🚀 Deployment Plan
+
+            **After this PR is merged to `develop`:**
+            - ✅ Automatic deployment to Dev environment will begin
+            - 🔗 Available at: https://dev.ericbellavance.com
+            - ⏱️ Deployment typically takes 2-3 minutes
+
+            **Infrastructure Changes:** ${{ steps.diff_summary.outputs.total_changes }} resources will be modified
 
   # CDK diff for main branch PRs (only runs after branch protection passes)
   cdk-diff-prod:
