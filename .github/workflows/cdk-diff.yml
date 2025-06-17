@@ -64,18 +64,18 @@ jobs:
           role-to-assume: ${{ secrets.DEV_GITHUB_ACTIONS_ROLE_ARN }}
           aws-region: ${{ vars.PRIMARY_REGION }}
 
-      - name: CDK synth
-        run: npx cdk synth --output cdk.out --context stage=dev
-        env:
-          SKIP_SANDBOX: true
-          DEV_ALLOWED_IPS: ${{ secrets.DEV_ALLOWED_IPS }}
-          CROSS_ACCOUNT_ROLE_ARN: ${{ secrets.CROSS_ACCOUNT_ROLE_ARN }}
-          DNS_ACCOUNT: ${{ secrets.DNS_ACCOUNT }}
-          DEV_ACCOUNT_NUMBER: ${{ secrets.DEV_ACCOUNT_NUMBER }}
+      #      - name: CDK synth
+      #        run: npx cdk synth --output cdk.out --context stage=dev
+      #        env:
+      #          SKIP_SANDBOX: true
+      #          DEV_ALLOWED_IPS: ${{ secrets.DEV_ALLOWED_IPS }}
+      #          CROSS_ACCOUNT_ROLE_ARN: ${{ secrets.CROSS_ACCOUNT_ROLE_ARN }}
+      #          DNS_ACCOUNT: ${{ secrets.DNS_ACCOUNT }}
+      #          DEV_ACCOUNT_NUMBER: ${{ secrets.DEV_ACCOUNT_NUMBER }}
 
       - name: Run AWS CDK diff
         run: |
-          npx cdk diff --app "./cdk.out/assembly-dev" --context stage=dev 2>&1 | tee output.log
+          npx cdk diff --context stage=dev 2>&1 | tee output.log
         env:
           SKIP_SANDBOX: true
           DEV_ALLOWED_IPS: ${{ secrets.DEV_ALLOWED_IPS }}
@@ -211,8 +211,11 @@ jobs:
           PROD_ACCOUNT_NUMBER: ${{ secrets.PROD_ACCOUNT_NUMBER }}
 
       - name: Run AWS CDK diff
-        run: |
-          npx cdk diff --app "./cdk.out/assembly-prod" --context stage=prod 2>&1 | tee output.log
+        run: npx cdk diff --context stage=prod 2>&1 | tee output.log
+        env:
+          CROSS_ACCOUNT_ROLE_ARN: ${{ secrets.CROSS_ACCOUNT_ROLE_ARN }}
+          DNS_ACCOUNT: ${{ secrets.DNS_ACCOUNT }}
+          PROD_ACCOUNT_NUMBER: ${{ secrets.PROD_ACCOUNT_NUMBER }}
 
       - name: Save output
         id: output_log
