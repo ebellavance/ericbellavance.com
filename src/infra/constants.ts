@@ -13,6 +13,11 @@ const getEnv = (key: string): string => {
   return value
 }
 
+// Helper function to get optional environment variable
+const getOptionalEnv = (key: string): string | undefined => {
+  return process.env[key]
+}
+
 // Non-sensitive configuration
 export const CONFIG = {
   CLOUDFRONT_CERTIFICATE_REGION: 'us-east-1',
@@ -29,7 +34,7 @@ export const CONFIG = {
   },
 } as const
 
-// All environment variables are now required
+// Base project configuration - only requires variables that should always be present
 export const PROJECT: IProject = {
   DEV_ALLOWED_IP: getEnv('DEV_ALLOWED_IPS')
     .split(',')
@@ -55,14 +60,36 @@ const getStageConfig = (stageName: string): IStage => {
   }
 }
 
-export const DEVELOPMENT = getStageConfig('dev')
-export const PRODUCTION = getStageConfig('prod')
+// Lazy-loaded stage configurations - only create when needed
+let _development: IStage | undefined
+let _production: IStage | undefined
 
-export const STAGES = [DEVELOPMENT, PRODUCTION]
+export const getDevelopment = (): IStage => {
+  if (!_development) {
+    _development = getStageConfig('dev')
+  }
+  return _development
+}
 
-//In summary, this function searches through an array of IStage objects ( STAGES) and
-//returns the first object whose STAGE_NAME property matches the provided stageShortName.
-//If no match is found, it returns undefined.
+export const getProduction = (): IStage => {
+  if (!_production) {
+    _production = getStageConfig('prod')
+  }
+  return _production
+}
+
+// For backward compatibility, export the functions but only call them when the env vars exist
+export const DEVELOPMENT = getOptionalEnv('DEV_ACCOUNT_NUMBER') ? getDevelopment() : undefined
+export const PRODUCTION = getOptionalEnv('PROD_ACCOUNT_NUMBER') ? getProduction() : undefined
+
+// Updated function to work with lazy loading
 export const getStageFromShortName = (stageShortName: string): IStage | undefined => {
-  return STAGES.find((stage) => stage.STAGE_NAME === stageShortName)
+  switch (stageShortName) {
+    case 'dev':
+      return getDevelopment()
+    case 'prod':
+      return getProduction()
+    default:
+      return undefined
+  }
 }
