@@ -78,6 +78,10 @@ jobs:
           npx cdk diff --app "./cdk.out/assembly-dev" --context stage=dev 2>&1 | tee output.log
         env:
           SKIP_SANDBOX: true
+          DEV_ALLOWED_IPS: ${{ secrets.DEV_ALLOWED_IPS }}
+          CROSS_ACCOUNT_ROLE_ARN: ${{ secrets.CROSS_ACCOUNT_ROLE_ARN }}
+          DNS_ACCOUNT: ${{ secrets.DNS_ACCOUNT }}
+          DEV_ACCOUNT_NUMBER: ${{ secrets.DEV_ACCOUNT_NUMBER }}
 
       - name: Save output
         id: output_log
