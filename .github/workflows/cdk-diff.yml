@@ -147,6 +147,28 @@ jobs:
         run: |
           echo "::warning title=Destructive Changes Detected::This PR will delete ${{ steps.diff_summary.outputs.resources_delete }} resource(s). Please review carefully!"
 
+      - name: Add workflow status
+        if: always()
+        uses: mshick/add-pr-comment@v2
+        with:
+          message-id: cdk-workflow-status
+          message: |
+            ### 🔄 CDK Workflow Status (Prod): ${{ job.status == 'success' && '✅ Completed Successfully' || '❌ Failed' }}
+
+            **Environment:** Prod  
+            **Workflow Run:** [View Details](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+      - name: Add workflow status
+        if: always()
+        uses: mshick/add-pr-comment@v2
+        with:
+          message-id: cdk-workflow-status
+          message: |
+            ### 🔄 CDK Workflow Status (Dev): ${{ job.status == 'success' && '✅ Completed Successfully' || '❌ Failed' }}
+
+            **Environment:** Dev  
+            **Workflow Run:** [View Details](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
   # CDK diff for main branch PRs (only runs after branch protection passes)
   cdk-diff-prod:
     name: Run CDK diff (Prod)
@@ -262,6 +284,8 @@ jobs:
     if: always()
     needs: [branch-protection, cdk-diff-dev, cdk-diff-prod]
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     steps:
       - name: Add workflow status
         uses: mshick/add-pr-comment@v2
