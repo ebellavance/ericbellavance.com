@@ -5,7 +5,7 @@ on:
     types: [opened, synchronize, reopened]
 
 jobs:
-  # Branch protection check - only runs for PRs targeting main
+  # Branch protection check - only runs for PRs targeting main branch
   branch-protection:
     name: Branch Protection Check
     if: github.base_ref == 'main'
