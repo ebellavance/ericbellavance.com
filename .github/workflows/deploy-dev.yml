@@ -1,0 +1,50 @@
+name: Deploy to Dev
+
+on:
+  push:
+    branches: [develop]
+
+jobs:
+  deploy-dev:
+    name: Deploy to Development
+    runs-on: ubuntu-latest
+    environment:
+      name: dev
+      url: https://dev.ericbellavance.com
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node and Cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.DEV_GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: ${{ vars.PRIMARY_REGION || 'ca-central-1' }}
+
+      - name: Deploy to Dev
+        run: npm run deploy:dev
+        env:
+          DEV_ALLOWED_IPS: ${{ secrets.DEV_ALLOWED_IPS }}
+          CROSS_ACCOUNT_ROLE_ARN: ${{ secrets.CROSS_ACCOUNT_ROLE_ARN }}
+          DNS_ACCOUNT: ${{ secrets.DNS_ACCOUNT }}
+          DEV_ACCOUNT_NUMBER: ${{ secrets.DEV_ACCOUNT_NUMBER }}
+
+      - name: Post deployment success
+        if: success()
+        run: |
+          echo "✅ Successfully deployed to Dev environment"
+          echo "🔗 URL: https://dev.ericbellavance.com"

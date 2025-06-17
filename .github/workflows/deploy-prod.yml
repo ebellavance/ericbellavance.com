@@ -1,0 +1,66 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy-prod:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment:
+      name: prod
+      url: https://www.ericbellavance.com
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node and Cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.PROD_GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: ${{ vars.PRIMARY_REGION || 'ca-central-1' }}
+
+      - name: Deploy to Production
+        run: npm run deploy:prod
+        env:
+          CROSS_ACCOUNT_ROLE_ARN: ${{ secrets.CROSS_ACCOUNT_ROLE_ARN }}
+          DNS_ACCOUNT: ${{ secrets.DNS_ACCOUNT }}
+          PROD_ACCOUNT_NUMBER: ${{ secrets.PROD_ACCOUNT_NUMBER }}
+
+      - name: Post deployment success
+        if: success()
+        run: |
+          echo "🚀 Successfully deployed to Production!"
+          echo "🔗 URL: https://ericbellavance.com"
+
+      - name: Create GitHub release
+        if: success()
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Production Release v${{ github.run_number }}
+          body: |
+            🚀 **Production Deployment**
+
+            **Commit:** ${{ github.sha }}
+            **Deployed:** ${{ github.event.head_commit.message }}
+            **URL:** https://ericbellavance.com
+          draft: false
+          prerelease: false

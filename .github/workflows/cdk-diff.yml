@@ -1,0 +1,298 @@
+name: Run CDK difference
+on:
+  pull_request:
+    branches: ['develop', 'main']
+    types: [opened, synchronize, reopened]
+
+jobs:
+  # Branch protection check - only runs for PRs targeting main branch
+  branch-protection:
+    name: Branch Protection Check
+    if: github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate source branch
+        run: |
+          SOURCE_BRANCH="${{ github.head_ref }}"
+
+          case "$SOURCE_BRANCH" in
+            "develop")
+              echo "✅ Regular deployment from develop"
+              ;;
+            hotfix/*)
+              echo "🚨 Hotfix deployment: $SOURCE_BRANCH"
+              echo "::warning::This is a hotfix deployment - ensure proper review"
+              ;;
+            *)
+              echo "❌ ERREUR: Seules 'develop' et 'hotfix/*' peuvent merger vers main"
+              echo "Pour les features: feature/* → develop → main"
+              echo "Pour les hotfixes: hotfix/* → main"
+              exit 1
+              ;;
+          esac
+
+  # CDK diff for develop branch PRs
+  cdk-diff-dev:
+    name: Run CDK diff (Dev)
+    if: github.base_ref == 'develop'
+    environment: dev
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          fetch-depth: 0
+
+      - name: Setup Node and Cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.DEV_GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: ${{ vars.PRIMARY_REGION }}
+
+      - name: CDK synth
+        run: npx cdk synth --output cdk.out --context stage=dev
+        env:
+          SKIP_SANDBOX: true
+          DEV_ALLOWED_IPS: ${{ secrets.DEV_ALLOWED_IPS }}
+          CROSS_ACCOUNT_ROLE_ARN: ${{ secrets.CROSS_ACCOUNT_ROLE_ARN }}
+          DNS_ACCOUNT: ${{ secrets.DNS_ACCOUNT }}
+          DEV_ACCOUNT_NUMBER: ${{ secrets.DEV_ACCOUNT_NUMBER }}
+
+      - name: Run AWS CDK diff
+        run: |
+          npx cdk diff --app "./cdk.out/assembly-dev" --context stage=dev 2>&1 | tee output.log
+        env:
+          SKIP_SANDBOX: true
+          DEV_ALLOWED_IPS: ${{ secrets.DEV_ALLOWED_IPS }}
+          CROSS_ACCOUNT_ROLE_ARN: ${{ secrets.CROSS_ACCOUNT_ROLE_ARN }}
+          DNS_ACCOUNT: ${{ secrets.DNS_ACCOUNT }}
+          DEV_ACCOUNT_NUMBER: ${{ secrets.DEV_ACCOUNT_NUMBER }}
+
+      - name: Save output
+        id: output_log
+        run: |
+          echo "data<<EOF" >> $GITHUB_OUTPUT
+          echo "$(cat output.log)" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Generate diff summary
+        id: diff_summary
+        run: |
+          RESOURCES_TO_ADD=0
+          RESOURCES_TO_UPDATE=0
+          RESOURCES_TO_DELETE=0
+
+          if [ -f output.log ]; then
+            RESOURCES_TO_ADD=$(grep -c '^\[\+\]' output.log || true)
+            RESOURCES_TO_UPDATE=$(grep -c '^\[~\]' output.log || true)
+            RESOURCES_TO_DELETE=$(grep -c '^\[-\]' output.log || true)
+            
+            [ -z "$RESOURCES_TO_ADD" ] && RESOURCES_TO_ADD=0
+            [ -z "$RESOURCES_TO_UPDATE" ] && RESOURCES_TO_UPDATE=0
+            [ -z "$RESOURCES_TO_DELETE" ] && RESOURCES_TO_DELETE=0
+          fi
+
+          echo "resources_add=${RESOURCES_TO_ADD:-0}" >> $GITHUB_OUTPUT
+          echo "resources_update=${RESOURCES_TO_UPDATE:-0}" >> $GITHUB_OUTPUT
+          echo "resources_delete=${RESOURCES_TO_DELETE:-0}" >> $GITHUB_OUTPUT
+
+          TOTAL_CHANGES=$((RESOURCES_TO_ADD + RESOURCES_TO_UPDATE + RESOURCES_TO_DELETE))
+          echo "total_changes=${TOTAL_CHANGES}" >> $GITHUB_OUTPUT
+
+      - name: Post diff in comment
+        uses: mshick/add-pr-comment@v2
+        with:
+          message-id: cdk-diff-Dev
+          message: |
+            ## 🏗️ CDK Infrastructure Diff - Dev
+
+            **Target Branch:** `${{ github.base_ref }}` | **Source Branch:** `${{ github.head_ref }}`
+
+            ### 📊 Summary
+            - **Resources to Add:** ${{ steps.diff_summary.outputs.resources_add }}
+            - **Resources to Update:** ${{ steps.diff_summary.outputs.resources_update }}
+            - **Resources to Delete:** ${{ steps.diff_summary.outputs.resources_delete }}
+            - **Total Changes:** ${{ steps.diff_summary.outputs.total_changes }}
+
+            ${{ steps.diff_summary.outputs.total_changes == '0' && '✅ **No infrastructure changes detected**' || '⚠️ **Infrastructure changes detected - Please review carefully**' }}
+
+            <details>
+              <summary>🔍 View Full CDK Diff</summary>
+              
+              ```bash
+              ${{ steps.output_log.outputs.data }}
+              ```
+            </details>
+
+            ---
+            *This diff shows changes that would be applied to the **Dev** environment when this PR is merged.*
+
+      - name: Check for destructive changes
+        if: steps.diff_summary.outputs.resources_delete != '0'
+        run: |
+          echo "::warning title=Destructive Changes Detected::This PR will delete ${{ steps.diff_summary.outputs.resources_delete }} resource(s). Please review carefully!"
+
+      - name: Add workflow status
+        if: always()
+        uses: mshick/add-pr-comment@v2
+        with:
+          message-id: cdk-workflow-status
+          message: |
+            ### 🔄 CDK Workflow Status (Prod): ${{ job.status == 'success' && '✅ Completed Successfully' || '❌ Failed' }}
+
+            **Environment:** Prod  
+            **Workflow Run:** [View Details](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+      - name: Add workflow status
+        if: always()
+        uses: mshick/add-pr-comment@v2
+        with:
+          message-id: cdk-workflow-status
+          message: |
+            ### 🔄 CDK Workflow Status (Dev): ${{ job.status == 'success' && '✅ Completed Successfully' || '❌ Failed' }}
+
+            **Environment:** Dev  
+            **Workflow Run:** [View Details](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+  # CDK diff for main branch PRs (only runs after branch protection passes)
+  cdk-diff-prod:
+    name: Run CDK diff (Prod)
+    if: github.base_ref == 'main'
+    needs: branch-protection
+    environment: prod
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          fetch-depth: 0
+
+      - name: Setup Node and Cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.PROD_GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: ${{ vars.PRIMARY_REGION }}
+
+      - name: CDK synth
+        run: npx cdk synth --output cdk.out --context stage=prod
+        env:
+          CROSS_ACCOUNT_ROLE_ARN: ${{ secrets.CROSS_ACCOUNT_ROLE_ARN }}
+          DNS_ACCOUNT: ${{ secrets.DNS_ACCOUNT }}
+          PROD_ACCOUNT_NUMBER: ${{ secrets.PROD_ACCOUNT_NUMBER }}
+
+      - name: Run AWS CDK diff
+        run: |
+          npx cdk diff --app "./cdk.out/assembly-prod" --context stage=prod 2>&1 | tee output.log
+
+      - name: Save output
+        id: output_log
+        run: |
+          echo "data<<EOF" >> $GITHUB_OUTPUT
+          echo "$(cat output.log)" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Generate diff summary
+        id: diff_summary
+        run: |
+          RESOURCES_TO_ADD=0
+          RESOURCES_TO_UPDATE=0
+          RESOURCES_TO_DELETE=0
+
+          if [ -f output.log ]; then
+            RESOURCES_TO_ADD=$(grep -c '^\[\+\]' output.log || true)
+            RESOURCES_TO_UPDATE=$(grep -c '^\[~\]' output.log || true)
+            RESOURCES_TO_DELETE=$(grep -c '^\[-\]' output.log || true)
+            
+            [ -z "$RESOURCES_TO_ADD" ] && RESOURCES_TO_ADD=0
+            [ -z "$RESOURCES_TO_UPDATE" ] && RESOURCES_TO_UPDATE=0
+            [ -z "$RESOURCES_TO_DELETE" ] && RESOURCES_TO_DELETE=0
+          fi
+
+          echo "resources_add=${RESOURCES_TO_ADD:-0}" >> $GITHUB_OUTPUT
+          echo "resources_update=${RESOURCES_TO_UPDATE:-0}" >> $GITHUB_OUTPUT
+          echo "resources_delete=${RESOURCES_TO_DELETE:-0}" >> $GITHUB_OUTPUT
+
+          TOTAL_CHANGES=$((RESOURCES_TO_ADD + RESOURCES_TO_UPDATE + RESOURCES_TO_DELETE))
+          echo "total_changes=${TOTAL_CHANGES}" >> $GITHUB_OUTPUT
+
+      - name: Post diff in comment
+        uses: mshick/add-pr-comment@v2
+        with:
+          message-id: cdk-diff-Prod
+          message: |
+            ## 🏗️ CDK Infrastructure Diff - Prod
+
+            **Target Branch:** `${{ github.base_ref }}` | **Source Branch:** `${{ github.head_ref }}`
+
+            ### 📊 Summary
+            - **Resources to Add:** ${{ steps.diff_summary.outputs.resources_add }}
+            - **Resources to Update:** ${{ steps.diff_summary.outputs.resources_update }}
+            - **Resources to Delete:** ${{ steps.diff_summary.outputs.resources_delete }}
+            - **Total Changes:** ${{ steps.diff_summary.outputs.total_changes }}
+
+            ${{ steps.diff_summary.outputs.total_changes == '0' && '✅ **No infrastructure changes detected**' || '⚠️ **Infrastructure changes detected - Please review carefully**' }}
+
+            <details>
+              <summary>🔍 View Full CDK Diff</summary>
+              
+              ```bash
+              ${{ steps.output_log.outputs.data }}
+              ```
+            </details>
+
+            ---
+            *This diff shows changes that would be applied to the **Prod** environment when this PR is merged.*
+
+      - name: Check for destructive changes
+        if: steps.diff_summary.outputs.resources_delete != '0'
+        run: |
+          echo "::warning title=Destructive Changes Detected::This PR will delete ${{ steps.diff_summary.outputs.resources_delete }} resource(s). Please review carefully!"
+
+  # Workflow status summary
+  workflow-status:
+    name: Workflow Status
+    if: always()
+    needs: [branch-protection, cdk-diff-dev, cdk-diff-prod]
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Add workflow status
+        uses: mshick/add-pr-comment@v2
+        with:
+          message-id: cdk-workflow-status
+          message: |
+            ### 🔄 CDK Workflow Status: ${{ contains(needs.*.result, 'failure') && '❌ Failed' || '✅ Completed Successfully' }}
+
+            **Environment:** ${{ github.base_ref == 'main' && 'Prod' || 'Dev' }}  
+            **Workflow Run:** [View Details](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
