@@ -51,7 +51,7 @@ export class WebsiteStack extends Stack {
 
     // Create CloudFront Function for IP restriction (only for dev stage)
     let ipRestrictionFunction: cloudfront.Function | undefined
-    if (stage.STAGE_NAME === 'dev') {
+    if (stage.STAGE_NAME === 'dev' && stage.DEV_ALLOWED_IP && stage.DEV_ALLOWED_IP.length > 0) {
       ipRestrictionFunction = this.createIpRestrictionFunction(stage)
     }
 

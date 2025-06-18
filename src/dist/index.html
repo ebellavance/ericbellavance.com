@@ -5,22 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Eric Bellavance</title>
     <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css"
       rel="stylesheet"
-      integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ"
+      integrity="sha384-LN+7fdVzj6u52u30Kp6M/trliBMCMKTyK833zpbD+pXdCLuTusPj697FH4R/5mcr"
       crossorigin="anonymous"
     />
     <link rel="stylesheet" href="./css/style.css" />
   </head>
 
   <body>
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top">
       <div class="container-fluid">
         <a class="navbar-brand d-flex align-items-center" href="#">
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            width="50"
-            height="50"
+            width="30"
+            height="30"
             fill="currentColor"
             class="bi bi-cloud me-3"
             viewBox="0 0 16 16"
@@ -134,34 +134,94 @@
       </div>
     </section>
 
-    <!-- Features 
-  <section id="features">
-    <div class="container mt-5">
-      <div class="row g-4 py-5 row-cols-1 row-cols-lg-4">
-        <div class="col d-flex align-items-start">
-          <div>
-            <a href="https://www.credly.com/badges/de41d0b1-a9bd-485d-8e39-4f1af9144a37/public_url"><img src="./images/aws-certified-solutions-architect-associate.png" alt="AWS Certified Solutions Architect Associate" /></a>
+    <!-- about section-->
+    <section id="about">
+      <div class="container mt-4 pt-4">
+        <h1 class="text-center">À propos de moi</h1>
+        <div class="row mt-4">
+          <div class="col-lg-4">
+            <img src="images/me2.jpg" class="imageAboutPage" alt="Photo Eric Bellavance" />
           </div>
-        </div>
-        <div class="col d-flex align-items-start">
-          <div>
-            <a href="https://www.credly.com/badges/94de349a-391f-47de-9252-d4dbdb3718d9/public_url"><img src="./images/aws-certified-developer-associate.png" alt="AWS Certified Developer Associate" /></a>
-          </div>
-        </div>
-        <div class="col d-flex align-items-start">
-          <div>
-            <a href="https://www.credly.com/badges/0bb9dd2d-ef58-4047-97c4-fc50aabe7468/public_url"><img src="./images/aws-certified-sysops-administrator-associate.png" alt="AWS Certified Sysops Administrator Associate" /></a>
-          </div>
-        </div>
-        <div class="col d-flex align-items-start">
-          <div>
-            <a href="https://www.credly.com/badges/e97b83d2-3898-4569-8570-a7b8384d58a9/public_url"><img src="./images/aws-certified-cloud-practitioner.png" alt="AWS Certified Cloud Practitioner" /></a>
+
+          <div class="col-lg-8">
+            <p>
+              Fort de plus de 19 années d'expérience en infrastructure TI, je me spécialise depuis juin 2021 dans
+              l'écosystème AWS où j'aide mon organisation dans la transformation infonuagique. Mon expertise se
+              concentre sur l'Infrastructure as Code (IaC) avec AWS CDK TypeScript, permettant des déploiements
+              automatisés, reproductibles et maintenables.
+            </p>
+            <div class="row mt-3">
+              <p>
+                Je m'occupe de l'administration de la zone d'accueil AWS LZA et ASEA (AWS Secure Environment
+                Accelerator), garantissant des environnements sécurisés et conformes aux meilleures pratiques. Mon
+                approche technique couvre l'ensemble des services AWS : EC2, S3, CloudFront, ALB, Lambda, SQS, ECS,
+                Fargate et Elastic Beanstalk.
+              </p>
+              <p>
+                Mes réalisations incluent le déploiement de solutions hautement disponibles intégrant CloudFront, ELB,
+                EC2, RDS pour Oracle et EFS, ainsi que la mise en place de sites web statiques optimisés avec CloudFront
+                et S3. J'ai également établi des connexions VPN sécurisées entre AWS et les infrastructures on-premises.
+              </p>
+              <p>
+                Mon parcours antérieur m'a permis de développer une expertise approfondie en systèmes critiques :
+                solutions de messagerie en haute disponibilité (Groupwise, Exchange 2007/2013, Exchange Online avec EOP
+                et ATP), sécurité email (McAfee Ironmail, Symantec Email Gateway, Cisco Ironport), et stockage
+                entreprise (HP EVA, EMC VNX et Unity).
+              </p>
+              <p>
+                Cette expérience des environnements hybrides, incluant la virtualisation VMware, les clusters Microsoft
+                et Linux, me permet d'aborder les projets cloud avec une vision complète des enjeux techniques et
+                organisationnels.
+              </p>
+              <p>
+                Je privilégie une approche méthodique centrée sur l'automatisation et la sécurité, en appliquant les
+                principes DevOps pour optimiser les cycles de déploiement tout en maintenant la robustesse des
+                solutions. Mon objectif est de transformer la complexité technique en solutions élégantes et durables.
+              </p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </section>
--->
+    </section>
+
+    <section id="features">
+      <div class="container mt-5">
+        <div class="row g-4 py-5 row-cols-1 row-cols-lg-4">
+          <div class="col d-flex align-items-start">
+            <div>
+              <a href="https://www.credly.com/badges/de41d0b1-a9bd-485d-8e39-4f1af9144a37/public_url"
+                ><img
+                  src="./images/aws-certified-solutions-architect-associate.png"
+                  alt="AWS Certified Solutions Architect Associate"
+              /></a>
+            </div>
+          </div>
+          <div class="col d-flex align-items-start">
+            <div>
+              <a href="https://www.credly.com/badges/94de349a-391f-47de-9252-d4dbdb3718d9/public_url"
+                ><img src="./images/aws-certified-developer-associate.png" alt="AWS Certified Developer Associate"
+              /></a>
+            </div>
+          </div>
+          <div class="col d-flex align-items-start">
+            <div>
+              <a href="https://www.credly.com/badges/0bb9dd2d-ef58-4047-97c4-fc50aabe7468/public_url"
+                ><img
+                  src="./images/aws-certified-sysops-administrator-associate.png"
+                  alt="AWS Certified Sysops Administrator Associate"
+              /></a>
+            </div>
+          </div>
+          <div class="col d-flex align-items-start">
+            <div>
+              <a href="https://www.credly.com/badges/e97b83d2-3898-4569-8570-a7b8384d58a9/public_url"
+                ><img src="./images/aws-certified-cloud-practitioner.png" alt="AWS Certified Cloud Practitioner"
+              /></a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
     <!-- Footer -->
     <section id="footer">
       <footer class="footer mt-auto py-3 bg-light">
@@ -204,8 +264,8 @@
     </section>
     <!-- Bootstrap JS (required for navbar toggler to work) -->
     <script
-      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"
-      integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe"
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-ndDqU0Gzau9qJ1lfW4pNLlhNTkCfHzAVBReH9diLvGRem5+R9g2FzA8ZGN954O5Q"
       crossorigin="anonymous"
     ></script>
     <!-- Cloudflare Web Analytics -->
