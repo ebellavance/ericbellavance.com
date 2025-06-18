@@ -14,7 +14,8 @@ jobs:
 
     permissions:
       id-token: write
-      contents: read
+      contents: write # Required for creating releases
+      packages: write # Optional: if you plan to publish packages
 
     steps:
       - name: Checkout code
@@ -50,17 +51,19 @@ jobs:
 
       - name: Create GitHub release
         if: success()
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}
-          release_name: Production Release v${{ github.run_number }}
+          name: Production Release v${{ github.run_number }}
           body: |
             🚀 **Production Deployment**
 
             **Commit:** ${{ github.sha }}
             **Deployed:** ${{ github.event.head_commit.message }}
             **URL:** https://ericbellavance.com
+
+            ## Changes
+            ${{ github.event.head_commit.message }}
           draft: false
           prerelease: false
+          generate_release_notes: true
