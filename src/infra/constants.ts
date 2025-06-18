@@ -34,11 +34,9 @@ export const CONFIG = {
   },
 } as const
 
-// Base project configuration - only requires variables that should always be present
+// Base project configuration - only common variables that are always needed
 export const PROJECT: IProject = {
-  DEV_ALLOWED_IP: getEnv('DEV_ALLOWED_IPS')
-    .split(',')
-    .map((ip) => ip.trim()),
+  DEV_ALLOWED_IP: [], // Will be populated in dev stage only
   CROSS_ACCOUNT_ROLE_ARN: getEnv('CROSS_ACCOUNT_ROLE_ARN'),
   DNS_ACCOUNT: getEnv('DNS_ACCOUNT'),
   PRIMARY_REGION: CONFIG.PRIMARY_REGION,
@@ -51,8 +49,17 @@ const getStageConfig = (stageName: string): IStage => {
 
   const domainConfig = CONFIG.DOMAINS[stageKey] || { DOMAIN_NAME: '', ALTERNATE_DOMAIN_NAMES: [] }
 
+  // Get DEV_ALLOWED_IPS only for dev environment
+  const devAllowedIps =
+    stageName === 'dev'
+      ? getEnv('DEV_ALLOWED_IPS')
+          .split(',')
+          .map((ip) => ip.trim())
+      : []
+
   return {
     ...PROJECT,
+    DEV_ALLOWED_IP: devAllowedIps, // Override with stage-specific value
     ACCOUNT_NUMBER: getEnv(`${prefix}ACCOUNT_NUMBER`),
     ALTERNATE_DOMAIN_NAME: [...(domainConfig.ALTERNATE_DOMAIN_NAMES || [])],
     DOMAIN_NAME: domainConfig.DOMAIN_NAME || '',
