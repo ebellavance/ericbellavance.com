@@ -48,7 +48,7 @@
     "typescript-eslint": "^8.18.0"
   },
   "dependencies": {
-    "@aws-sdk/client-acm": "^3.817.0",
+    "@aws-sdk/client-acm": "^3.835.0",
     "@aws-sdk/client-route-53": "^3.817.0",
     "@aws-sdk/client-sts": "^3.817.0"
   }
