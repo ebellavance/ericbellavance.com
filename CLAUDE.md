@@ -9,11 +9,13 @@ This is Eric Bellavance's personal portfolio website built as a static site depl
 ## Architecture
 
 ### Multi-Account AWS Structure
-- **DNS Account**: Manages Route 53 hosted zones  
+
+- **DNS Account**: Manages Route 53 hosted zones
 - **DEV Account**: Development environment deployment
 - **PROD Account**: Production environment deployment
 
 ### Key Infrastructure Components
+
 - **S3 Buckets**: Website content storage and access logging
 - **CloudFront**: CDN with custom SSL certificates and optional IP restriction for dev
 - **ACM Certificates**: SSL/TLS certificates with DNS validation
@@ -21,6 +23,7 @@ This is Eric Bellavance's personal portfolio website built as a static site depl
 - **Route 53**: DNS records managed via cross-account IAM roles
 
 ### Code Structure
+
 ```
 src/
 ├── infra/              # AWS CDK infrastructure code
@@ -44,6 +47,7 @@ Configuration is managed through environment variables and the `constants.ts` fi
 - **IP restriction**: Development environment supports IP allowlisting via CloudFront functions
 
 ### Required Environment Variables
+
 ```
 CROSS_ACCOUNT_ROLE_ARN=arn:aws:iam::DNS_ACCOUNT:role/CrossAccountRole
 DNS_ACCOUNT=123456789012
@@ -55,6 +59,7 @@ DEV_ALLOWED_IPS=1.2.3.4,5.6.7.8  # For dev environment only
 ## Development Commands
 
 ### Linting and Code Quality
+
 ```bash
 npm run lint                    # Run all linting (ESLint + Prettier + CDK synth)
 npm run lint:eslint             # ESLint only
@@ -64,6 +69,7 @@ npm run lint:fix                # Fix ESLint and Prettier issues
 ```
 
 ### CDK Operations
+
 ```bash
 npm run synth:dev               # Synthesize CloudFormation for dev
 npm run synth:prod              # Synthesize CloudFormation for prod
@@ -76,6 +82,7 @@ npm run destroy:prod            # Destroy prod environment
 ```
 
 ### Formatting
+
 ```bash
 npm run format                  # Format code with Prettier
 ```
@@ -83,12 +90,14 @@ npm run format                  # Format code with Prettier
 ## Deployment Process
 
 ### Branch Strategy
+
 - `main`: Production deployments (auto-deploy via GitHub Actions)
-- `develop`: Development deployments (auto-deploy via GitHub Actions)  
+- `develop`: Development deployments (auto-deploy via GitHub Actions)
 - `feature/*`: Feature branches (merge to develop)
 - `hotfix/*`: Emergency fixes (can merge directly to main)
 
 ### Automated CI/CD
+
 - **PR Checks**: Linting and validation on all PRs
 - **Dev Deployment**: Auto-deploy when pushing to `develop` branch
 - **Prod Deployment**: Auto-deploy when merging to `main` branch
@@ -97,12 +106,14 @@ npm run format                  # Format code with Prettier
 ## Custom Resources
 
 ### Certificate Management (`dnscertificatevalidation.ts`)
+
 - Requests ACM certificates with DNS validation
 - Creates Route 53 validation records in the DNS account
 - Handles certificate lifecycle (create, update, delete)
 - Manages cross-account Route 53 permissions via STS assume role
 
 ### DNS Record Management (`crossaccountdnsrecords.ts`)
+
 - Creates A and AAAA records pointing to CloudFront distribution
 - Manages both primary domain and alternate domain names
 - Uses cross-account IAM roles to write to DNS account Route 53
@@ -114,17 +125,14 @@ Currently uses basic linting and TypeScript compilation checks. No unit tests ar
 ## Cross-Account Permissions
 
 The DNS account role requires these permissions:
+
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Effect": "Allow", 
-      "Action": [
-        "route53:ChangeResourceRecordSets",
-        "route53:ListHostedZones", 
-        "route53:ListHostedZonesByName"
-      ],
+      "Effect": "Allow",
+      "Action": ["route53:ChangeResourceRecordSets", "route53:ListHostedZones", "route53:ListHostedZonesByName"],
       "Resource": "*"
     }
   ]
@@ -132,6 +140,7 @@ The DNS account role requires these permissions:
 ```
 
 Trust relationship allows dev and prod accounts to assume the role:
+
 ```json
 {
   "Version": "2012-10-17",
