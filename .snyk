@@ -1,0 +1,9 @@
+# .snyk
+version: v1.0.0
+language-settings:
+  javascript:
+    fixPr:
+      targetBranch: develop
+  typescript:
+    fixPr:
+      targetBranch: develop
